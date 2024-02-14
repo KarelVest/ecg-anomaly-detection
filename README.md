@@ -34,11 +34,11 @@ With this, the process of training the neural networks is completed. The final p
 4) Evaluating and marking with the second neural network all segments shorter than one second.
 5) Displaying the result - a file with the original ECG but in .parquet format and marked with anomalous segments (they will be red during visualization), as well as segments longer than a second (they will be orange).
 
-To run the described programs on your computer, you need to have Python, Jupyter Notebook, and the following third-party Python libraries:
-
-`pip install torch PyQt6 pyqtgraph pandas fastparquet numpy matplotlib tqdm tkinter`
+To run the described programs on your computer, you need to have Python (I used 3.11), Jupyter Notebook and some third-party Python libraries, which you can install using the requirements.txt file (available in the repository): `pip install -r requirements.txt`
 
 (Jupyter Notebook is required for .ipynb files. If you cannot use it, you can simply paste the code into a .py file or convert it using any method you are familiar with. However, it is worth mentioning that Jupyter Notebook is highly convenient for training neural networks).
+
+ You will also need cuda if you want to use the GPU when working with neural networks. You can find detailed instructions for installing cuda together with torch on the official PyTorch website: https://pytorch.org/get-started/locally/
 
 Required format for .txt files:
 
