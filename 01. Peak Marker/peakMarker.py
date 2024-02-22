@@ -61,10 +61,34 @@ class ExampleApp(QtWidgets.QMainWindow, viewerDesign.Ui_MainWindow):
 
             return df
     
+    # def ReadTXT(self, filePath):
+    #     with open(filePath, 'r') as file:
+    #         lines = file.readlines()
+
+    #     j = -1
+    #     values = []
+    #     times = []
+        
+    #     for line in lines:
+    #         j += 1
+    #         if j == 0:
+    #             continue
+    #         # if j == 6000:
+    #         #     break
+    #         value = line
+    #         times.append(float(j))
+    #         values.append(float(value))
+
+    #     df1 = pd.DataFrame(data=values, columns=['value'])
+    #     df2 = pd.DataFrame(data=times, columns=['time'])
+    #     df = pd.concat([df1, df2], axis=1)
+    #     df['edge'] = 0
+    #     return df
+        
     def ReadTXT(self, filePath):
         with open(filePath, 'r') as file:
             lines = file.readlines()
-
+        
         j = -1
         values = []
         times = []
@@ -73,12 +97,12 @@ class ExampleApp(QtWidgets.QMainWindow, viewerDesign.Ui_MainWindow):
             j += 1
             if j == 0:
                 continue
-            if j == 6000:
-                break
-            value = line
+            # if j == 6000:
+            #     break
+            value = line.split(" ", 1)[0]
             times.append(float(j))
             values.append(float(value))
-
+        
         df1 = pd.DataFrame(data=values, columns=['value'])
         df2 = pd.DataFrame(data=times, columns=['time'])
         df = pd.concat([df1, df2], axis=1)

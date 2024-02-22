@@ -50,7 +50,7 @@ hidden_size = 64
 num_layers = 1
 
 def main():
-    device = ("cpu")
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     root = tk.Tk()
     root.withdraw()
@@ -94,7 +94,7 @@ def main():
     # Загрузка структуры модели (необходимо знать класс модели)
     model = EcgLstmNet(input_size, hidden_size, num_layers)     # Кол-во входных элементов, кол-во нейронов lstm-в слое и количество слоёв
     # Загрузка весов модели
-    model.load_state_dict(torch.load('../00. Resources/Models/FirstStageModel.pt', map_location=device))      # Загружаем обученную модель
+    model.load_state_dict(torch.load('.workspace/Models/FirstStageModel.2.pt', map_location=device))      # Загружаем обученную модель
     model.to(device)
     model.eval()  # Перевод модели в режим оценки
     predictions = []
