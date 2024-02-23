@@ -101,89 +101,16 @@ class SecondEcgDataset(Dataset):
         #return segmentTensor
         return self.cachedTensors[index], self.cachedLabels[index]
     
-#* Модель нейронной сети
-# class LSTMAutoencoder(nn.Module):
-#     def __init__(self, input_size=1, hidden_size=64, num_layers=1, bidirectional=True):
-#         super(LSTMAutoencoder, self).__init__()
-
-#         # Encoder
-#         self.encoder = nn.LSTM(
-#             input_size=input_size,
-#             hidden_size=hidden_size,
-#             num_layers=num_layers,
-#             batch_first=True,
-#             bidirectional=bidirectional
-#         )
-
-#         # Decoder
-#         self.decoder = nn.LSTM(
-#             input_size=(2 * hidden_size if bidirectional else hidden_size),
-#             hidden_size=input_size,
-#             num_layers=num_layers,
-#             batch_first=True,
-#             bidirectional=bidirectional
-#         )
-
-#         self.resulter = nn.Linear(2 * input_size if bidirectional else input_size, 1)
-
-#         # Sigmoid
-#         self.sigmoid = nn.Sigmoid()
-
-#     def forward(self, x):
-#         # Encoder
-#         output, _ = self.encoder(x)
-
-#         # Decoder
-#         output, _ = self.decoder(output)
-
-#         # Resulter
-#         output = self.resulter(output)
-
-#         # Sigmoid
-#         output = self.sigmoid(output) 
-
-#         return output
-    
 class LSTMAutoencoder(nn.Module):
     def __init__(self, input_size=1, hidden_size=64, num_layers=1, bidirectional=True):
         super(LSTMAutoencoder, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.bidirectional = bidirectional
 
-        # Encoder
-        self.encoder1 = nn.LSTM(
+        # LSTM
+        self.lstm = nn.LSTM(
             input_size=input_size,
-            hidden_size=hidden_size,
-            num_layers=num_layers,
-            batch_first=True,
-            bidirectional=bidirectional
-        )
-
-        self.encoder2 = nn.LSTM(
-            input_size=(2*hidden_size if bidirectional else hidden_size),
-            hidden_size=hidden_size//2,
-            num_layers=num_layers,
-            batch_first=True,
-            bidirectional=bidirectional
-        )
-
-        self.encoder3 = nn.LSTM(
-            input_size=(hidden_size if bidirectional else hidden_size//2),
-            hidden_size=hidden_size//4,
-            num_layers=num_layers,
-            batch_first=True,
-            bidirectional=bidirectional
-        )
-
-        # Decoder
-        self.decoder1 = nn.LSTM(
-            input_size=(hidden_size//2 if bidirectional else hidden_size//4),
-            hidden_size=hidden_size//2,
-            num_layers=num_layers,
-            batch_first=True,
-            bidirectional=bidirectional
-        )
-
-        self.decoder2 = nn.LSTM(
-            input_size=(hidden_size if bidirectional else hidden_size//2),
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
@@ -196,17 +123,16 @@ class LSTMAutoencoder(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        # Encoder
-        output, _ = self.encoder1(x)
-        output, _ = self.encoder2(output)
-        output, _ = self.encoder3(output)
+        h0 = torch.zeros(self.num_layers * 2 if self.bidirectional else self.num_layers, x.size(0), self.hidden_size).to(x.device)
+        c0 = torch.zeros(self.num_layers * 2 if self.bidirectional else self.num_layers, x.size(0), self.hidden_size).to(x.device)
 
-        # Decoder
-        output, _ = self.decoder1(output)
-        output, _ = self.decoder2(output)
+        # Encoder
+        _, (hidden, _) = self.lstm(x, (h0, c0))
+        # print(torch.cat([hidden[-2], hidden[-1]], dim=1).shape)
 
         # Resulter
-        output = self.resulter(output)
+        output = self.resulter(torch.cat([hidden[-2], hidden[-1]], dim=1))
+        # print(output.shape)
 
         # Sigmoid
         output = self.sigmoid(output) 
@@ -249,36 +175,38 @@ testDataset = SecondEcgDataset(df, indexes)
 testDataloader = torch.utils.data.DataLoader(testDataset, batch_size=10, shuffle=False)
 
 model = LSTMAutoencoder()
-criterion = nn.MSELoss()
+criterion = nn.BCELoss()
 
 # Загрузка весов модели
-model.load_state_dict(torch.load('.workspace/Models/SecondStageModel.24.pt', map_location=device))
+model.load_state_dict(torch.load('.workspace/Models/SecondStageModel.25.pt', map_location=device))
 model.to(device)
 model.eval()  # Перевод модели в режим оценки
-sequences = []
-predictions = []
+# sequences = []
+# predictions = []
 answers = []
-edges = []
 
 with torch.no_grad():  # Отключаем вычисление градиентов
-    for inputs in testDataloader:
-        inputs = inputs.to(device)  # DataLoader возвращает кортеж, берем только данные
-        outputs = model(inputs)
-        # print(outputs.shape)
+    for input, _ in testDataloader:
+        input = input.to(device)  # DataLoader возвращает кортеж, берем только данные
+        output = model(input)
+        answers.append(output.squeeze().cpu())
+
+
+        # losses = torch.mean((outputs - inputs)**2, dim=(1, 2))
         
-        # loss = criterion(outputs, inputs)
-        losses = torch.mean((outputs - inputs)**2, dim=(1, 2))
-        
-        for i in range(len(losses)):
-            sequences.append(inputs[i].squeeze().numpy())
-            predictions.append(outputs[i].squeeze().numpy())
-            answers.append(losses[i].item())
+        # for i in range(len(losses)):
+        #     sequences.append(inputs[i].squeeze().numpy())
+        #     predictions.append(outputs[i].squeeze().numpy())
+        #     answers.append(losses[i].item())
 
         #print(outputs.squeeze().cpu().shape)
 
 print(len(testDataset))
 print(len(answers))
-print(len(indexes))
+predictions_tensor = torch.cat(answers).flatten()
+print(len(predictions_tensor))
+
+# print(len(indexes))
 
 # def AverageBetweenMaximals(arr, percent):
 #     # Шаг 1: Сортировка массива
@@ -300,10 +228,11 @@ print(len(indexes))
 dfOriginal.loc[dfOriginal['edge'] == 3, 'edge'] = 1
 
 for i in range(len(testDataset)):
-    if (answers[i] > 0.0003): 
+    if (predictions_tensor[i] > 0.5): 
         df.at[indexes[i], 'edge'] = 3
 
 df.to_parquet(f'{fileName}.R.parquet')
+print(torch.max(predictions_tensor))
 print('Файл сохранён')
 #!-----------------------------------------------------
 
