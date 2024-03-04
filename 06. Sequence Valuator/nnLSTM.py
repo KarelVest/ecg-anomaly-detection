@@ -15,44 +15,6 @@ import tkinter as tk
 from tkinter import filedialog
 import torch.nn.functional as F
 
-# class SecondEcgDataset(Dataset):
-#     def __init__(self, df, estimatedIndexes):
-#         self.estimatedIndexes = estimatedIndexes
-#         self.df = df
-#         self.segmentStarts = df.index[df['edge'] > 0].tolist()
-#         self.startsCount = len(self.segmentStarts)
-
-#         self.cachedTensors = []
-#         self._get_segment_tensor()
-#         self.segmentsCount = len(self.cachedTensors)
-    
-#     def _get_segment_tensor(self):
-#         for index in range(self.startsCount):
-#             result = 0
-#             if index + 1 < len(self.segmentStarts):
-#                 if self.df.at[self.segmentStarts[index], 'edge'] < 2:
-#                     segment = self.df.iloc[self.segmentStarts[index]:self.segmentStarts[index+1]]
-#                     result = 1
-
-#             if result:
-#                 self.estimatedIndexes.append(self.segmentStarts[index])
-
-#                 segmentValues = segment['value']
-#                 segmentTensor = torch.tensor(segmentValues.to_numpy(), dtype=torch.float).unsqueeze(1)
-#                 padding = 200 - len(segmentTensor)
-#                 if padding > 0:
-#                     segmentTensor = torch.cat((segmentTensor, torch.zeros(padding, 1)), dim=0)
-#                 elif padding < 0:
-#                     print('В данные зашёл сегмент неверной длины: ', self.segmentStarts[index], ' = ', self.df.at[self.segmentStarts[index], 'edge'])
-#                 self.cachedTensors.append(segmentTensor)
-
-#     def __len__(self):
-#         return self.segmentsCount
-
-#     def __getitem__(self, index):
-#         segmentTensor = self.cachedTensors[index]
-#         return segmentTensor
-
 class SecondEcgDataset(Dataset):
     def __init__(self, df, estimatedIndexes):
         self.estimatedIndexes = estimatedIndexes
@@ -101,70 +63,6 @@ class SecondEcgDataset(Dataset):
         #segmentTensor = self.cachedTensors[index]
         #return segmentTensor
         return self.cachedTensors[index], self.cachedLabels[index]
-    
-# class LSTMAutoencoder(nn.Module):
-#     def __init__(self, input_size=1, hidden_size=64, num_layers=1, seq_len=200, bidirectional=True):
-#         super(LSTMAutoencoder, self).__init__()
-#         self.hidden_size = hidden_size
-#         self.num_layers = num_layers
-#         self.bidirectional = bidirectional
-#         add_size = 2*hidden_size if bidirectional else hidden_size
-
-#         # LSTM
-#         self.lstm1 = nn.LSTM(
-#             input_size=input_size,
-#             hidden_size=hidden_size,
-#             num_layers=num_layers,
-#             batch_first=True,
-#             bidirectional=bidirectional
-#         )
-
-#         self.lstm2 = nn.LSTM(
-#             input_size=add_size,
-#             hidden_size=hidden_size//2,
-#             num_layers=num_layers,
-#             batch_first=True,
-#             bidirectional=bidirectional
-#         )
-
-#         self.lstm3 = nn.LSTM(
-#             input_size=add_size//2,
-#             hidden_size=hidden_size//4,
-#             num_layers=num_layers,
-#             batch_first=True,
-#             bidirectional=bidirectional
-#         )
-
-#         #self.resulter = nn.Linear(hidden_size//2 if bidirectional else hidden_size//4, 1)
-#         self.resulter = nn.Linear(seq_len * add_size//4, 1)
-
-#         # Sigmoid
-#         self.sigmoid = nn.Sigmoid()
-
-#     def forward(self, x):
-#         # h0 = torch.zeros(self.num_layers * 2 if self.bidirectional else self.num_layers, x.size(0), self.hidden_size).to(x.device)
-#         # c0 = torch.zeros(self.num_layers * 2 if self.bidirectional else self.num_layers, x.size(0), self.hidden_size).to(x.device)
-#         #! Узнать точно, зачем это надо и насколько полезно
-
-#         # Encoder
-#         output, _ = self.lstm1(x)       #Output shape: [1, 200, 128]   [batch_size, seq_len, num_directions * hidden_size]
-#         output, _ = self.lstm2(output)
-#         # _, (hidden, _) = self.lstm3(output)#, (h0, c0))
-#         output, _ = self.lstm3(output)
-#         # print(torch.cat([hidden[-2], hidden[-1]], dim=1).shape)
-
-#         # Resulter
-#         # output = self.resulter(torch.cat([hidden[-2], hidden[-1]], dim=1))      #! Надо попробовать использовать не Hidden, а Output
-#         batch_size, seq_len, _ = output.size()
-#         output = output.reshape(batch_size, -1)
-#         output = self.resulter(output)      #! Надо попробовать использовать не Hidden, а Output
-#         # Надо, чтобы он принимал 32*200 значений
-#         # print(output.shape)
-
-#         # Sigmoid
-#         output = self.sigmoid(output) 
-
-#         return output
     
 class LSTMAutoencoder(nn.Module):
     def __init__(self, input_size=1, hidden_size=64, num_layers=1, seq_len=200, bidirectional=True):
@@ -284,8 +182,6 @@ criterion = nn.BCELoss()
 model.load_state_dict(torch.load('.workspace/Models/SecondStageModel.26.pt', map_location=device))
 model.to(device)
 model.eval()  # Перевод модели в режим оценки
-# sequences = []
-# predictions = []
 answers = []
 
 with torch.no_grad():  # Отключаем вычисление градиентов
@@ -293,16 +189,6 @@ with torch.no_grad():  # Отключаем вычисление градиен�
         input = input.to(device)  # DataLoader возвращает кортеж, берем только данные
         output = model(input)
         answers.append(output.squeeze().cpu())
-
-
-        # losses = torch.mean((outputs - inputs)**2, dim=(1, 2))
-        
-        # for i in range(len(losses)):
-        #     sequences.append(inputs[i].squeeze().numpy())
-        #     predictions.append(outputs[i].squeeze().numpy())
-        #     answers.append(losses[i].item())
-
-        #print(outputs.squeeze().cpu().shape)
 
 print(len(testDataset))
 print(len(answers))
