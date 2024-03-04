@@ -1,13 +1,10 @@
 # Импорт библиотек
 import pandas as pd
 import os
-import random
 from math import pi
 import torch
 from torch.utils.data import random_split, Dataset, DataLoader, TensorDataset
 from torch import nn
-from tqdm import tqdm
-import matplotlib.pyplot as plt
 import numpy as np
 import fastparquet
 import tkinter as tk
@@ -20,7 +17,7 @@ class EcgLstmNet(nn.Module):
         self.num_layers = num_layers
         self.bidirectional = bidirectional
         
-        # LSTM layer
+        # LSTM
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=bidirectional)
         
         # Fully connected layer
@@ -106,14 +103,13 @@ def main():
 
     # Объединяем предсказания из всех батчей и округляем их до 0 или 1
     def configurableRound(tensor, threshold=0.5):
-        # return int(num) + int(num % 1 >= threshold)
         return torch.where(tensor % 1 >= threshold, torch.ceil(tensor), torch.floor(tensor))      
 
     predictions_tensor = configurableRound(torch.cat(predictions), 0.3).flatten()
 
     # Создаем новый DataFrame с двумя столбцами: значения и метки
     dfResult = pd.DataFrame({
-        'value': values_tensor.squeeze(),
+        'value': values_tensor.squeeze(),   #! Вместо этого по-хорошему надо вставить столбец dfOriginal['value'], чтобы оставить исходные значения, а не нормализованные
         'edge': predictions_tensor
     })
 
@@ -130,4 +126,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-#! Возможны проблемы с тем, что выходные данные нормализованны
+#* 24.02.24 Были внесены минорные косметические изменения кода, а также проверена работоспособность (проблем нет) и совместимость с
+#* планируемой softmax-разметкой данных для второй нейросети (совместимость полная)

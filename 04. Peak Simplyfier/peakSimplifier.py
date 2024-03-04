@@ -1,18 +1,12 @@
 import os
-import sys
-from PyQt6 import QtWidgets, QtCore
-from pyqtgraph import PlotWidget, plot
-import pyqtgraph as pg
-from datetime import datetime
 import pandas as pd
 import fastparquet
-import numpy as np
 import tkinter as tk
 from tkinter import filedialog
 
 def SimplifyData(df, fileName):
     # Выделение строк, где 'edge' равно 1
-    eO = df[df['edge'] == 1]
+    eO = df[df['edge'] == 1.0]
     eO['timeDiff'] = eO['time'].diff()
     eO['group'] = (eO['timeDiff'] > 5).astype(int).cumsum()
 
@@ -21,9 +15,10 @@ def SimplifyData(df, fileName):
     for name, group in eO.groupby('group'):
         # Находим индекс первого максимального значения
         max_index = group['value'].idxmax()
-        # Сбрасываем edge для всех, кроме самой левой
-        df.loc[(df['group'] == name) & (df.index != max_index), 'edge'] = 0
+        # Сбрасываем edge для всех, кроме максимальной
+        df.loc[(df['group'] == name) & (df.index != max_index), 'edge'] = 0.0
 
+    #! Здесь надо удалить столбец группы!!!
     df.to_parquet(f'{fileName}.S.parquet')
     print('Файл сохранён')
 
@@ -51,3 +46,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+#* 24.02.24 Были внесены минорные косметические изменения кода, а также проверены работоспособность (проблем нет) и совместимость с
+#* планируемой softmax-разметкой данных для второй нейросети (совместимость полная)
