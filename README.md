@@ -38,6 +38,9 @@ To run the described programs on your computer, you need to have Python (I used 
 
 (Jupyter Notebook is required for .ipynb files. If you cannot use it, you can simply paste the code into a .py file or convert it using any method you are familiar with. However, it is worth mentioning that Jupyter Notebook is highly convenient for training neural networks).
 
+Unfortunately, you will need to install the libxcb-cursor0 package globally.
+Here is an example command for Debian: `sudo apt install libxcb-cursor0`
+
  You will also need cuda if you want to use the GPU when working with neural networks. You can find detailed instructions for installing cuda together with torch on the official PyTorch website: https://pytorch.org/get-started/locally/
 
 Required format for .txt files:
