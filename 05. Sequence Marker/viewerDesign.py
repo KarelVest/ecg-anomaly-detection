@@ -1,5 +1,4 @@
-from PyQt6 import QtCore, QtGui, QtWidgets
-import pyqtgraph as pg
+from PyQt6 import QtCore, QtWidgets
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):

@@ -2,11 +2,8 @@ import os
 import sys
 from PyQt6 import QtWidgets, QtCore
 import viewerDesign  # Это наш конвертированный файл дизайна
-from pyqtgraph import PlotWidget, plot
-from pyqtgraph.Qt import QtGui, QtCore
-from pyqtgraph.graphicsItems.FillBetweenItem import FillBetweenItem
+from pyqtgraph.Qt import QtCore
 import pyqtgraph as pg
-from datetime import datetime
 import pandas as pd
 import fastparquet
 import numpy as np
@@ -46,13 +43,14 @@ class ExampleApp(QtWidgets.QMainWindow, viewerDesign.Ui_MainWindow):
         self.df = self.ReadDataFile()
         self.series = self.graphWidget.plot(self.df['time'], self.df['value'])
         _, yRange = self.graphWidget.viewRange()
-        self.down = yRange[1] * (-0.1)
-        self.up = yRange[1] * (1.1)
+        self.down = yRange[1] * (-0.1)      # Нижняя граница отметок, для удобства
+        self.up = yRange[1] * (1.1)         # Верхняя граница отметок
         self.series.setPen(color='#000000', width=2)
 
-        self.edgeIndices = self.df[self.df['edge'] > 0]['time'].to_list()
-        self.redIndices = self.df[self.df['edge'] == 3]['time'].to_list()
+        self.edgeIndices = self.df[self.df['edge'] > 0.0]['time'].to_list()
+        self.redIndices = self.df[self.df['edge'] > 2.0]['time'].to_list()      #! Хорошо бы добавить также условие <=3.0
 
+        #! Возможно, эти два цикла можно как-то оптимизировать
         for i in range(len(self.edgeIndices) - 1):
             # Если длина отрезка больше 200, красим в оранжевый
             if self.edgeIndices[i + 1] - self.edgeIndices[i] > 200:
@@ -63,17 +61,19 @@ class ExampleApp(QtWidgets.QMainWindow, viewerDesign.Ui_MainWindow):
                 # Заполняем пространство между двумя точками
                 fill = pg.FillBetweenItem(pg.PlotDataItem(fill_x, fill_y1), pg.PlotDataItem(fill_x, fill_y2), brush=(255,165,0,50))
                 self.graphWidget.addItem(fill)
-                self.df.at[self.edgeIndices[i], 'edge'] = 2
+                self.df.at[self.edgeIndices[i], 'edge'] = 2.0
         
         for i in range(len(self.redIndices)):
             idx = np.searchsorted(self.edgeIndices, self.redIndices[i])
-            if self.edgeIndices[idx+1]:
+            if self.edgeIndices[idx+1]:         #! Вот здесь в теории стоит подумать над проблемой того, что первый и последний отрезок ЭКГ никак не помечаются и не оцениваются
                 fill_x = np.linspace(int(self.redIndices[i]), int(self.edgeIndices[idx + 1]), int((self.edgeIndices[idx + 1] - self.redIndices[i])*1))
                 fill_y1 = np.full_like(fill_x, self.up)
                 fill_y2 = np.full_like(fill_x, self.down)
 
                 # Заполняем пространство между двумя точками
-                fill = pg.FillBetweenItem(pg.PlotDataItem(fill_x, fill_y1), pg.PlotDataItem(fill_x, fill_y2), brush=(255,0,0,50))
+                #! Тут надо сделать зависимость прозрачности красного цвета от величины вероятности аномалии (2.0 < x <= 3.0)
+                opacityCoeff = self.df.at[self.redIndices[i], 'edge'] - 2.0
+                fill = pg.FillBetweenItem(pg.PlotDataItem(fill_x, fill_y1), pg.PlotDataItem(fill_x, fill_y2), brush=(255,0,0, 50*opacityCoeff))
                 self.graphWidget.addItem(fill)
                 self.redValues.append(self.redIndices[i])
                 self.redFills.append(fill)
@@ -104,12 +104,12 @@ class ExampleApp(QtWidgets.QMainWindow, viewerDesign.Ui_MainWindow):
                     print("Число больше всех чисел в массиве")
                 else:
                     rowIndex = self.df[self.df['time'] == self.edgeIndices[idx-1]].index[0]
-                    if (self.df.loc[rowIndex, 'edge'] == 3):
+                    if (self.df.loc[rowIndex, 'edge'] > 2.0):
                         ind = np.where(np.isclose(self.redValues, self.edgeIndices[idx-1], atol=1e-3))[0][0]
                         self.graphWidget.removeItem(self.redFills[ind])
                         self.redValues.pop(ind)
                         self.redFills.pop(ind)
-                        self.df.loc[rowIndex, 'edge'] = 1
+                        self.df.loc[rowIndex, 'edge'] = 1.0
             
             else:
                 # Находим индекс в массиве, где можно вставить num, чтобы сохранить порядок сортировки
@@ -122,15 +122,20 @@ class ExampleApp(QtWidgets.QMainWindow, viewerDesign.Ui_MainWindow):
                     print("Число больше всех чисел в массиве")
                 else:
                     rowIndex = self.df[self.df['time'] == self.edgeIndices[idx-1]].index[0]
-                    if (self.df.at[rowIndex, 'edge'] < 2):
-                        self.df.at[rowIndex, 'edge'] = 3
+                    if (self.df.at[rowIndex, 'edge'] < 2.0):    # Это по сути запрет навесить разметку сверху на уже размеченный участок
+                        if event.modifiers() == QtCore.Qt.KeyboardModifier.AltModifier and event.button() == QtCore.Qt.MouseButton.LeftButton:
+                            self.df.at[rowIndex, 'edge'] = 2.5
+                        else:
+                            self.df.at[rowIndex, 'edge'] = 3.0      #! Вот здесь надо вставить возможность по зажатому alt проставить значение 2.5
 
                         fill_x = np.linspace(int(self.edgeIndices[idx-1]), int(self.edgeIndices[idx]), int((self.edgeIndices[idx] - self.edgeIndices[idx-1])*1))
                         fill_y1 = np.full_like(fill_x, self.up)
                         fill_y2 = np.full_like(fill_x, self.down)
 
                         # Заполняем пространство между двумя точками
-                        fill = pg.FillBetweenItem(pg.PlotDataItem(fill_x, fill_y1), pg.PlotDataItem(fill_x, fill_y2), brush=(255,0,0,50))
+                        #! Тут надо сделать зависимость прозрачности красного цвета от величины вероятности аномалии (2.0 < x <= 3.0)
+                        opacityCoeff = self.df.at[rowIndex, 'edge'] - 2.0
+                        fill = pg.FillBetweenItem(pg.PlotDataItem(fill_x, fill_y1), pg.PlotDataItem(fill_x, fill_y2), brush=(255,0,0, 50*opacityCoeff))
                         self.graphWidget.addItem(fill)
                         self.redFills.append(fill)
                         self.redValues.append(self.edgeIndices[idx-1])
@@ -146,10 +151,10 @@ class ExampleApp(QtWidgets.QMainWindow, viewerDesign.Ui_MainWindow):
                             self.graphWidget.removeItem(fill)
                             rowIndex = self.df[self.df['time'] == self.redValues[-1]].index[0]
                             self.redValues.pop()
-                            self.df.loc[rowIndex, 'edge'] = 1
+                            self.df.loc[rowIndex, 'edge'] = 1.0
                     
                     elif (event.key() == QtCore.Qt.Key.Key_S):
-                        if ".V" in self.fileName:
+                        if ".V" in self.fileName:       #! Вот эту практику хорошо бы перенести в другие программы
                             self.df.to_parquet(f'{self.fileName}.parquet')
                         else:
                             self.df.to_parquet(f'{self.fileName}.V.parquet')
@@ -171,3 +176,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+#* 24.02.24 Была проверена работоспособность кода (проблем нет) и добавлен тестовый функционал
+#* softmax-разметки данных (пока только 0, 0.5 и 1) для второй нейросети. Подобная разметка позволит
+#* нейронной сети лучше отличать нормальные данные от явно аномальных, в то время как спорные данные
+#* будут интерпретироваться ей отдельно, это также даст больше гибкости и в визуализации результатов.
