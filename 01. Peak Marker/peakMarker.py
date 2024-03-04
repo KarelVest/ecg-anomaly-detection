@@ -2,12 +2,9 @@ import os
 import sys
 from PyQt6 import QtWidgets, QtCore
 import viewerDesign  # Это наш конвертированный файл дизайна
-from pyqtgraph import PlotWidget, plot
 import pyqtgraph as pg
-from datetime import datetime
 import pandas as pd
 import fastparquet
-import numpy as np
 
 class CustomPlotWidget(pg.PlotWidget):
     def __init__(self, parent=None):
@@ -106,7 +103,7 @@ class ExampleApp(QtWidgets.QMainWindow, viewerDesign.Ui_MainWindow):
         df1 = pd.DataFrame(data=values, columns=['value'])
         df2 = pd.DataFrame(data=times, columns=['time'])
         df = pd.concat([df1, df2], axis=1)
-        df['edge'] = 0
+        df['edge'] = 0.0
         return df
 
     def mouseClicked(self, event):
@@ -119,18 +116,17 @@ class ExampleApp(QtWidgets.QMainWindow, viewerDesign.Ui_MainWindow):
                     if abs(linePos - mousePoint.x()) < 0.3:
                         self.mark_lines.pop(i)
                         self.graphWidget.removeItem(line)
-                        clickValue = linePos
-                        rowIndex = self.df[self.df['time'] == clickValue].index[0]
-                        self.df.loc[rowIndex, 'edge'] = 0
+                        rowIndex = self.df[self.df['time'] == linePos].index[0]
+                        self.df.loc[rowIndex, 'edge'] = 0.0
                         break
             else:
                 pen = pg.mkPen(color='r', width=5)
-                line = pg.InfiniteLine(round(mousePoint.x()), pen=pen)
+                linePos = round(mousePoint.x())
+                line = pg.InfiniteLine(linePos, pen=pen)
                 self.graphWidget.addItem(line)
                 self.mark_lines.append(line)
-                clickValue = round(mousePoint.x())
-                rowIndex = self.df[self.df['time'] == clickValue].index[0]
-                self.df.loc[rowIndex, 'edge'] = 1
+                rowIndex = self.df[self.df['time'] == linePos].index[0]
+                self.df.loc[rowIndex, 'edge'] = 1.0
 
     def eventFilter(self, source, event):
         if (source is self.graphWidget):
@@ -140,9 +136,9 @@ class ExampleApp(QtWidgets.QMainWindow, viewerDesign.Ui_MainWindow):
                         if self.mark_lines:
                             line = self.mark_lines.pop()
                             self.graphWidget.removeItem(line)
-                            clickValue = line.value()
-                            rowIndex = self.df[self.df['time'] == clickValue].index[0]
-                            self.df.loc[rowIndex, 'edge'] = 0
+                            linePos = line.value()
+                            rowIndex = self.df[self.df['time'] == linePos].index[0]
+                            self.df.loc[rowIndex, 'edge'] = 0.0
                     
                     elif (event.key() == QtCore.Qt.Key.Key_S):
                         self.df.to_parquet(f'{self.fileName}.parquet')
@@ -164,3 +160,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+#* 24.02.24 - Минорные улучшения качества кода и добавление совместимости с softmax-разметкой для второй нейросети
